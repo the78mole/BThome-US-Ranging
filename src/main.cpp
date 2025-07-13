@@ -1,11 +1,10 @@
 #include <Arduino.h>
 
-#include <BtHomeV2Device.h>
 #include <ArduinoBLE.h>
+#include <BtHomeV2Device.h>
 #include <Adafruit_NeoPixel.h>
-
+#include <WiFi.h>
 #include <driver/temp_sensor.h>
-
 #include "version.h"
 
 #define SLEEP_DURATION_SECONDS  10
@@ -25,6 +24,24 @@ const float V_FULL = 4200;    // 100% batteryPercentage
 // Persistent variables use RTC memory to retain their values across deep sleep cycles
 RTC_DATA_ATTR uint64_t counter = 0;
 
+String getMacSuffix() {
+  String mac = WiFi.macAddress();
+  return mac.substring(9, 11) + mac.substring(12, 14) + mac.substring(15, 17);
+}
+
+BLEService infoService("180A");                       // Device Info Service
+BLEStringCharacteristic fwChar("2A26", BLERead, 16);  // Firmware Revision String
+
+BLEService controlService("12345678-1234-5678-1234-56789abcdef0");
+BLEBoolCharacteristic keepAwakeChar("abcdef01-1234-5678-1234-56789abcdef0", BLERead | BLEWrite);
+bool preventSleep = false;
+
+void onWriteKeepAwake(BLEDevice central, BLECharacteristic characteristic) {
+  preventSleep = keepAwakeChar.value();
+  Serial.print("KeepAwake set to: ");
+  Serial.println(preventSleep ? "true" : "false");
+}
+
 void initBLE() {
   if (!BLE.begin()) {
     // If BLE doesn't start, then just go to sleep
@@ -32,6 +49,25 @@ void initBLE() {
     esp_sleep_enable_timer_wakeup(SLEEP_DURATION_SECONDS * 1000000);
     esp_deep_sleep_start();
   }
+
+  String suffix = getMacSuffix();
+  String localName = "RANGER_" + suffix;
+
+  BLE.setDeviceName("RANGER");
+  BLE.setLocalName(localName.c_str());
+  
+  String fwVersion = String(VERSION_MAJOR) + "." + String(VERSION_MINOR) + "." + String(VERSION_PATCH);
+  fwChar.writeValue(fwVersion);
+  infoService.addCharacteristic(fwChar);
+  BLE.addService(infoService);
+  
+  keepAwakeChar.setValue(preventSleep);
+  keepAwakeChar.setEventHandler(BLEWritten, onWriteKeepAwake);
+  controlService.addCharacteristic(keepAwakeChar);
+  BLE.addService(controlService);
+
+  // !! NICHT BLE.advertise(); aufrufen !!
+  // → Werbung erfolgt separat über BTHome
 
   Serial.println("BLE initialized successfully!");
 }
@@ -83,8 +119,16 @@ void controlLed(bool state) {
   #endif
 }
 
-void sendAdvertisement(uint8_t advertisementData[], size_t size) {
+void sendGapAdvertisement() {
+  BLE.advertise();
+  delay(250);
+}
+
+void sendBThomeAdvertisement(uint8_t advertisementData[], size_t size) {
   BLEAdvertisingData advData;
+
+  BLE.stopAdvertise(); 
+
   advData.setRawData(advertisementData, size);
   BLE.setAdvertisingData(advData);
   BLE.advertise();
@@ -92,7 +136,6 @@ void sendAdvertisement(uint8_t advertisementData[], size_t size) {
   delay(1000);
   BLE.stopAdvertise();
   Serial.println("Raw advertising ended!");
-  
 }
 
 void initGPIO() {
@@ -131,20 +174,7 @@ long measureDistanceMM(int timeout_ms = 500) {
   return distance_mm;
 }
 
-void setup() {
-  // Put your code here, it will run every time, the board is powered 
-  // or woken up from deep sleep e.g. by timer
-
-  Serial.begin(115200);
-  Serial.printf("Starting BTHome US Distance Meter (%d)...", counter++);
-
-  Serial.printf(" Version: %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
-
-  initGPIO();
-  initLED();
-  initTempSensor();
-  initBLE();
-
+void measureAndSendData() {
   long distanceMM = measureDistanceMM();
   Serial.printf("Distance measured: %ld mm\n", distanceMM);
   
@@ -164,21 +194,72 @@ void setup() {
   device.addTemperature_neg3276_to_3276_Resolution_0_1(tempsens);
   size = device.getAdvertisementData(advertisementData);
   Serial.printf("Advertisement data size: %d bytes\n", size);
-  sendAdvertisement(advertisementData, size);
+  sendBThomeAdvertisement(advertisementData, size);
+}
+
+void setup() {
+  // Put your code here, it will run every time, the board is powered 
+  // or woken up from deep sleep e.g. by timer
+
+  Serial.begin(115200);
+  Serial.printf("Starting BTHome US Distance Meter (%d)...", counter++);
+
+  initBLE();
+
+  sendGapAdvertisement(); // Start GAP advertisement with no data
+
+  Serial.printf(" Version: %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
+
+  initGPIO();
+  initLED();
+  initTempSensor();
+
+  measureAndSendData();
 
   delay(300); // Give some time for the advertisement to be sent
 
-  Serial.println("Going to sleep...");
-
-  esp_sleep_enable_timer_wakeup(SLEEP_DURATION_SECONDS * 1000000);
-  esp_deep_sleep_start();
+  
+  if (!BLE.connected() && !preventSleep) {    
+    Serial.println("Going to sleep...");
+    esp_sleep_enable_timer_wakeup(SLEEP_DURATION_SECONDS * 1000000);
+    esp_deep_sleep_start();
+  } else {
+    Serial.println("BLE is still connected, not going to sleep -> loop()");
+  }
 }
 
+uint16_t interval_counter = 0;
+
 void loop() {
+
   // This will not run in our example, maybe later when 
   // prevent_deep_sleep and OTA is integrated. Then we need to
   // - Disable timer wakeup
   // - Disable deep sleep
   // - Start OTA
   // - Wait for OTA to finish
+
+
+  if (BLE.connected() || preventSleep) {
+    if (BLE.connected() && preventSleep) {
+      Serial.print("X");
+    } else if (preventSleep) {
+      Serial.print("w");
+    } else if (BLE.connected()) {
+      Serial.print("c");
+    } else {
+      Serial.print(".");
+    }
+    BLE.poll();
+    delay(500);
+    if (interval_counter++ % 10 == 0) {
+      Serial.println("\nMeasure...");
+      measureAndSendData();
+      counter++;
+    }
+  } else {
+    Serial.println("BLE disconnected, going to sleep...");
+    esp_sleep_enable_timer_wakeup(SLEEP_DURATION_SECONDS * 1000000);
+    esp_deep_sleep_start();
+  }
 }
