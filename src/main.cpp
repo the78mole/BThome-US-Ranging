@@ -7,7 +7,7 @@
 #include <driver/temp_sensor.h>
 #include "version.h"
 
-#define SLEEP_DURATION_SECONDS  10
+#define SLEEP_DURATION_SECONDS  120
 #define BATTERY_MEASUREMENT_PIN 1
 
 #define RANGER_POWER_PIN    7
@@ -90,7 +90,7 @@ void initBLE() {
   controlService.addCharacteristic(keepAwakeChar);
   controlService.addCharacteristic(enableWifiChar);
   BLE.addService(controlService);
-  
+
   Serial.println("BLE initialized successfully!");
 }
 
@@ -196,6 +196,12 @@ long measureDistanceMM(int timeout_ms = 500) {
   return distance_mm;
 }
 
+void goToSleep() {
+  Serial.printf("Going to sleep... (%d s)\n", SLEEP_DURATION_SECONDS);
+  esp_sleep_enable_timer_wakeup(SLEEP_DURATION_SECONDS * 1000000);
+  esp_deep_sleep_start();
+}
+
 void measureAndSendData() {
   long distanceMM = measureDistanceMM();
   Serial.printf("Distance measured: %ld mm\n", distanceMM);
@@ -242,9 +248,7 @@ void setup() {
 
   
   if (!BLE.connected() && !preventSleep) {    
-    Serial.println("Going to sleep...");
-    esp_sleep_enable_timer_wakeup(SLEEP_DURATION_SECONDS * 1000000);
-    esp_deep_sleep_start();
+    goToSleep();
   } else {
     Serial.println("BLE is still connected, not going to sleep -> loop()");
   }
@@ -274,14 +278,15 @@ void loop() {
     }
     BLE.poll();
     delay(500);
-    if (interval_counter++ % 10 == 0) {
-      Serial.println("\nMeasure...");
+    if (interval_counter++ % (SLEEP_DURATION_SECONDS * 2) == 0) {
+      Serial.print("\nRe-advertise GAP...");
+      sendGapAdvertisement();
+      Serial.println("  Measure...");
       measureAndSendData();
       counter++;
     }
   } else {
-    Serial.println("BLE disconnected, going to sleep...");
-    esp_sleep_enable_timer_wakeup(SLEEP_DURATION_SECONDS * 1000000);
-    esp_deep_sleep_start();
+    Serial.println("No BLE connection and no preventSleep, going to sleep...");
+    goToSleep();
   }
 }
