@@ -33,13 +33,35 @@ BLEService infoService("180A");                       // Device Info Service
 BLEStringCharacteristic fwChar("2A26", BLERead, 16);  // Firmware Revision String
 
 BLEService controlService("12345678-1234-5678-1234-56789abcdef0");
-BLEBoolCharacteristic keepAwakeChar("abcdef01-1234-5678-1234-56789abcdef0", BLERead | BLEWrite);
+BLEBoolCharacteristic keepAwakeChar("abcdef01-1234-5678-1234-567890000000", BLERead | BLEWrite);
 bool preventSleep = false;
+BLEBoolCharacteristic enableWifiChar("abcdef01-1234-5678-1234-567890000001", BLERead | BLEWrite);
+bool enableWifi = false;
 
 void onWriteKeepAwake(BLEDevice central, BLECharacteristic characteristic) {
   preventSleep = keepAwakeChar.value();
   Serial.print("KeepAwake set to: ");
   Serial.println(preventSleep ? "true" : "false");
+}
+
+void onWriteEnableWifi(BLEDevice central, BLECharacteristic characteristic) {
+  uint8_t val = enableWifiChar.value();
+  enableWifi = val != 0;
+
+  Serial.print("BLE: enableWifi set to: ");
+  Serial.println(enableWifi ? "true" : "false");
+
+  if (enableWifi) {
+    // Starte Webserver, WiFi.begin(...) etc.
+    Serial.println("Starting WiFi/WebUI...");
+    // WiFi.begin(...);
+    // webServer.begin();
+  } else {
+    // Stoppe Webserver, WiFi.end() etc.
+    Serial.println("Stopping WiFi/WebUI...");
+    // webServer.stop();
+    // WiFi.end();
+  }
 }
 
 void initBLE() {
@@ -62,13 +84,13 @@ void initBLE() {
   BLE.addService(infoService);
   
   keepAwakeChar.setValue(preventSleep);
+  enableWifiChar.setValue(enableWifi);
   keepAwakeChar.setEventHandler(BLEWritten, onWriteKeepAwake);
+  enableWifiChar.setEventHandler(BLEWritten, onWriteEnableWifi);
   controlService.addCharacteristic(keepAwakeChar);
+  controlService.addCharacteristic(enableWifiChar);
   BLE.addService(controlService);
-
-  // !! NICHT BLE.advertise(); aufrufen !!
-  // → Werbung erfolgt separat über BTHome
-
+  
   Serial.println("BLE initialized successfully!");
 }
 
