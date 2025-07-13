@@ -1,4 +1,5 @@
 # BThome-US-Ranging
+
 BThome US ranging sensor e.g. for water or oil level measurments
 
 NOTE: For the Packet ID and Firmware Version, the latest sources from the BTHomeV2-Arduino library [Pull Request #1](https://github.com/deeja/BTHomeV2-Arduino/pull/1) are required. The current version in PlatformIO is not sufficient. 
@@ -11,8 +12,15 @@ git clone git@github.com:the78mole/BTHomeV2-Arduino.git
 git pull origin adding_fwversion_packetid_device_id
 ```
 
+You can also find a story on the "why" on my [blog](https://the78mole.de/the-great-flood-how-i-turned-my-living-room-into-a-high-tech-sump-pit/).
 
+![hardware-inserted-in-case](img/hardware-and-bottom-case.jpg)
 
+You can easily insert a 50mm tube (HT DN50 in Germany), to not detect sourrounding edges. If you can not access DN50 tubes, you can easily print one (50mm outer and 45mm inner diameter) with a 3D printer. Drill a small hole in the upper part to relief air, when water raises...
+
+![tube-extension](img/case-with-tube.jpg)
+
+To make it work with Home Assistant, you need a bluetooth proxy somewhere around in range. This can be a newer Shelly Pro or Plus or an ESPhome device with [bluetooth proxy](https://esphome.io/components/bluetooth_proxy.html) enabled.
 
 ## Development Hardware
 
