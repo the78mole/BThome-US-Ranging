@@ -12,8 +12,8 @@
 
 #define RANGER_POWER_PIN    7
 
-#define RANGER_MEASURE_TRIGGER_PIN    5   // High active
-#define RANGER_MEASURE_ECHO_PIN       18  // High active
+#define RANGER_MEASURE_TRIGGER_PIN    9   // High active
+#define RANGER_MEASURE_ECHO_PIN       8   // High active
 
 #define RANGER_MEASURE_LED_PIN    48
 #define RANGER_MEASURE_LED_WS2812_COUNT  1    // Set to 0, when using a normal LED
@@ -74,6 +74,7 @@ void initBLE() {
 
   String suffix = getMacSuffix();
   String localName = "RANGER_" + suffix;
+  Serial.printf("Initializing BLE with local name: %s\n", localName.c_str());
 
   BLE.setDeviceName("RANGER");
   BLE.setLocalName(localName.c_str());
@@ -230,7 +231,7 @@ void setup() {
   // or woken up from deep sleep e.g. by timer
 
   Serial.begin(115200);
-  Serial.printf("Starting BTHome US Distance Meter (%d)...", counter++);
+  Serial.printf("Starting BTHome US Distance Meter (%d)...\n", counter++);
 
   initBLE();
 
