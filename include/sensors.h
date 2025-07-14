@@ -10,6 +10,9 @@
 #include <common.h>
 
 void initTempSensor();
+float measureTemperatureCelsius();
+
+void initMeasureDistance();
 long measureDistanceMM(int timeout_ms = 500);
 
 #endif // SENSORS_H

@@ -54,14 +54,7 @@ void controlLed(bool state) {
 }
 
 void initGPIO() {
-  Serial.println("Initializing GPIO...");
-  pinMode(RANGER_POWER_PIN, OUTPUT);
-  digitalWrite(RANGER_POWER_PIN, HIGH);
-
-  pinMode(RANGER_MEASURE_TRIGGER_PIN, OUTPUT);
-  digitalWrite(RANGER_MEASURE_TRIGGER_PIN, LOW);
-
-  pinMode(RANGER_MEASURE_ECHO_PIN, INPUT);
+  // Nothing special here...
 }
 
 
@@ -75,8 +68,7 @@ void measureAndSendBthomeData() {
   long distanceMM = measureDistanceMM();
   Serial.printf("Distance measured: %ld mm\n", distanceMM);
 
-  float tempsens;
-  temp_sensor_read_celsius(&tempsens);
+  float tempsens = measureTemperatureCelsius();
   Serial.printf("Temperature: %.2f °C\n", tempsens);
 
   bthomeSendData(distanceMM, tempsens);
@@ -99,6 +91,7 @@ void setup() {
   initGPIO();
   initLED();
   initTempSensor();
+  initMeasureDistance();
 
   measureAndSendBthomeData();
 

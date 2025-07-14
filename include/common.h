@@ -6,6 +6,8 @@
 #define COMMON_H
 
 #define SLEEP_DURATION_SECONDS  120
+//#define RANGER_USE_RMT  // defined => Timer based pulse measurement, else SW based
+
 #define BATTERY_MEASUREMENT_PIN 1
 
 #define RANGER_POWER_PIN    7

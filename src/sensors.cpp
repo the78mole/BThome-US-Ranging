@@ -7,6 +7,27 @@ void initTempSensor() {
     temp_sensor_start();
 }
 
+float measureTemperatureCelsius() {
+  float temperature;
+  temp_sensor_read_celsius(&temperature);
+  return temperature;
+}
+
+void initMeasureDistance() {
+#ifdef RANGER_USE_RMT
+    //...
+#else
+  Serial.println("Initializing GPIO for Ranger...");
+  pinMode(RANGER_POWER_PIN, OUTPUT);
+  digitalWrite(RANGER_POWER_PIN, HIGH);
+
+  pinMode(RANGER_MEASURE_TRIGGER_PIN, OUTPUT);
+  digitalWrite(RANGER_MEASURE_TRIGGER_PIN, LOW);
+
+  pinMode(RANGER_MEASURE_ECHO_PIN, INPUT);
+#endif
+}
+
 long measureDistanceMM(int timeout_ms) {
   digitalWrite(RANGER_POWER_PIN, HIGH);
 
