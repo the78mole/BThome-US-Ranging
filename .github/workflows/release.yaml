@@ -1,14 +1,17 @@
-name: Release Firmware
+name: Build and Release Firmware
 
 on:
   push:
     branches:
-      - main
+      - '**'
+  pull_request:
+    branches:
+      - '**'
   workflow_dispatch:
 
 jobs:
-  build-and-release:
-    name: Build and Create Release
+  build:
+    name: Build Firmware
     runs-on: ubuntu-latest
 
     permissions:
@@ -32,13 +35,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install platformio
 
-      - name: Install PlatformIO libraries
-        run: pio lib install
+      - name: Determine if this is a release
+        id: release_check
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "release=true" >> $GITHUB_OUTPUT
+          else
+            echo "release=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Run PlatformIO build
-        run: platformio run
-
-      - name: Generate release version
+      - name: Generate semantic version (only for release)
+        if: steps.release_check.outputs.release == 'true'
         id: semver
         uses: paulhatch/semantic-version@v5.4.0
         with:
@@ -48,21 +55,73 @@ jobs:
           minor_pattern: "^feat:"
           search_commit_body: true
 
-      - name: Log version
-        run: echo "Version is ${{ steps.semver.outputs.version }}"
+      - name: Export version
+        if: steps.release_check.outputs.release == 'true'
+        run: |
+          echo "MAJOR=$(echo '${{ steps.semver.outputs.version }}' | cut -d. -f1)" >> $GITHUB_ENV
+          echo "MINOR=$(echo '${{ steps.semver.outputs.version }}' | cut -d. -f2)" >> $GITHUB_ENV
+          echo "PATCH=$(echo '${{ steps.semver.outputs.version }}' | cut -d. -f3)" >> $GITHUB_ENV
+
+      - name: Set fallback version for test builds
+        if: steps.release_check.outputs.release != 'true'
+        run: |
+          echo "MAJOR=0" >> $GITHUB_ENV
+          echo "MINOR=0" >> $GITHUB_ENV
+          echo "PATCH=0" >> $GITHUB_ENV
+
+      - name: Run PlatformIO build
+        run: |
+          platformio run --build-flags="
+            -DVERSION_MAJOR=${{ env.MAJOR }}
+            -DVERSION_MINOR=${{ env.MINOR }}
+            -DVERSION_PATCH=${{ env.PATCH }}"
 
       - name: Archive firmware binaries
+        if: steps.release_check.outputs.release == 'true'
         run: |
           mkdir -p dist
-          cp .pio/build/*/firmware*.bin dist/ || true
-        shell: bash
+          for dir in .pio/build/*; do
+            cp "$dir/firmware.bin" "dist/$(basename $dir)-firmware-v${{ steps.semver.outputs.version }}.bin" || true
+          done
+
+      - name: Generate Release Notes
+        if: steps.release_check.outputs.release == 'true'
+        id: release_notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+
+            let latestTag = '';
+            try {
+              latestTag = execSync('git describe --tags --abbrev=0').toString().trim();
+            } catch {
+              latestTag = '';
+            }
+
+            let commitLog = '';
+            if (latestTag) {
+              commitLog = execSync(`git log ${latestTag}..HEAD --pretty=format:"- %s"`).toString();
+            } else {
+              commitLog = execSync('git log --pretty=format:"- %s"').toString();
+            }
+
+            let prText = '';
+            const event = github.context.payload;
+            if (event.pull_request) {
+              prText = event.pull_request.body || '';
+            }
+
+            const notes = `${prText ? prText + '\n\n---\n\n' : ''}${commitLog}`;
+            core.setOutput('body', notes);
 
       - name: Create GitHub Release
+        if: steps.release_check.outputs.release == 'true' && steps.semver.outputs.version != ''
         uses: softprops/action-gh-release@v2
-        if: steps.semver.outputs.version != ''
         with:
           tag_name: v${{ steps.semver.outputs.version }}
           name: Release v${{ steps.semver.outputs.version }}
+          body: ${{ steps.release_notes.outputs.body }}
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
