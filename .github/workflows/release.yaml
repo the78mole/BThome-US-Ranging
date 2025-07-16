@@ -71,10 +71,7 @@ jobs:
 
       - name: Run PlatformIO build
         run: |
-          platformio run --build-flags="
-            -DVERSION_MAJOR=${{ env.MAJOR }}
-            -DVERSION_MINOR=${{ env.MINOR }}
-            -DVERSION_PATCH=${{ env.PATCH }}"
+          platformio run
 
       - name: Archive firmware binaries
         if: steps.release_check.outputs.release == 'true'
