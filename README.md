@@ -28,7 +28,7 @@ To develop this project, I used a [clone](https://mischianti.org/vcc-gnd-studio-
 
 Excessive Documentation is available on [michianti.org](https://mischianti.org/vcc-gnd-studio-yd-esp32-s3-devkitc-1-clone-high-resolution-pinout-and-specs/).
 
-There is also a [Datasheet of the ESP32-S3-WROOM-1 Module](https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf) available. The [ESP32-S3 Technical Reference Manual](https://www.espressif.com/documentation/esp32-s3_technical_reference_manual_en.pdf) has detailed description of the SoC. The WROOM-variont on my DevKit is the N16R8, which incorporates 16MB of Flash and 8MB of PSRAM.
+There is also a [Datasheet of the ESP32-S3-WROOM-1 Module](https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf) available. The [ESP32-S3 Technical Reference Manual](https://www.espressif.com/documentation/esp32-s3_technical_reference_manual_en.pdf) has detailed description of the SoC. The WROOM-variant on my DevKit is the N16R8, which incorporates 16MB of Flash and 8MB of PSRAM.
 
 Its pinout is as follows:
 
