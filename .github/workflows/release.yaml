@@ -103,10 +103,10 @@ jobs:
               commitLog = execSync('git log --pretty=format:"- %s"').toString();
             }
 
+            // Zugriff auf PR-Beschreibung
             let prText = '';
-            const event = github.context.payload;
-            if (event.pull_request) {
-              prText = event.pull_request.body || '';
+            if (context.payload.pull_request) {
+              prText = context.payload.pull_request.body || '';
             }
 
             const notes = `${prText ? prText + '\n\n---\n\n' : ''}${commitLog}`;
